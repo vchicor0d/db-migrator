@@ -5,7 +5,7 @@
    [taoensso.timbre :as log]))
 
 (def config-file
-  (yaml/from-file "config.yml"))
+  (yaml/from-file "resources/config.yml"))
 
 (def loglevel
   (if (nil? (:log-level config-file))

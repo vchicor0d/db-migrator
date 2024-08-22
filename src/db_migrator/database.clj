@@ -62,14 +62,14 @@
 (defn- insert-query
   "Obtains an insert query"
   [table rows]
-  (log/trace "Creating query to insert" (count rows) "rows into" (name table))
+  (log/debug "Creating query to insert" (count rows) "into" (name table))
   (let [query (-> (sqlh/insert-into table)
-                  (sqlh/values rows)
+                  (sqlh/values (seq rows))
                   (sqlh/upsert (-> (sqlh/on-conflict)
-                                   sqlh/do-nothing)))
-        formatted-query (sql/format query)]
-    (log/trace formatted-query)
-    formatted-query))
+                                   sqlh/do-nothing))
+                  (sql/format))]
+    (log/debug query)
+    query))
 
 (defn- execute-query!
   "Executes a jdbc query"

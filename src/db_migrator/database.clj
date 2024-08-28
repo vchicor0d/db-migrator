@@ -32,6 +32,9 @@
    :ssl (:ssl (:destination config/config-file))
    :sslmode (:sslmode (:destination config/config-file))})
 
+(def limit (let [config-limit (:limit (:db config/config-file))]
+             (if (nil? config-limit) 10000 config-limit)))
+
 (def source-datasource
   (jdbc/get-datasource source))
 
@@ -156,3 +159,14 @@
   [table resultset]
   (log/info "Splitting resultset of" (count resultset) "rows to insert into" (name table) "table.")
   (execute-insert-query-rowblock! table (split-parameters resultset (max-parameters-by-field-number (count (first resultset))))))
+
+(defn migrate-in-batches
+  "Executes a migration from source to destination in batches"
+  ([query table]
+   (migrate-in-batches query table limit))
+  ([query table limit]
+   (loop [offset 0
+          resultset (execute-select-query! [(str (first query) " limit " limit "offset" offset)])]
+     (when (seq resultset)
+       (execute-insert-query! table resultset)
+       (recur (+ limit offset) (execute-select-query! [(str (first query) " limit " limit "offset" offset)]))))))

@@ -166,10 +166,10 @@
    (migrate-in-batches source-query destination-table limit))
   ([source-query destination-table limit]
    (loop [offset 0
-          resultset (execute-select-query! [(str (first source-query) " limit " limit "offset" offset)])]
+          resultset (execute-select-query! [(str (first source-query) " limit " limit " offset " offset)])]
      (when (seq resultset)
        (execute-insert-query! destination-table resultset)
-       (recur (+ limit offset) (execute-select-query! [(str (first source-query) " limit " limit "offset" offset)]))))))
+       (recur (+ limit offset) (execute-select-query! [(str (first source-query) " limit " limit " offset " offset)]))))))
 
 (defn migrate-in-batches-applying-function
 		"Executes a migration from source to destination in batches applying a function to the retrieved resultsets"
@@ -177,7 +177,7 @@
    (migrate-in-batches-applying-function source-query destination-table fun limit))
   ([source-query destination-table fun limit]
    (loop [offset 0
-          resultset (execute-select-query! [(str (first source-query) " limit " limit "offset" offset)])]
+          resultset (execute-select-query! [(str (first source-query) " limit " limit " offset " offset)])]
      (when (seq resultset)
        (fun (execute-insert-query! destination-table resultset))
-       (recur (+ limit offset) (execute-select-query! [(str (first source-query) " limit " limit "offset" offset)]))))))
+       (recur (+ limit offset) (execute-select-query! [(str (first source-query) " limit " limit " offset " offset)]))))))

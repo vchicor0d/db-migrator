@@ -106,11 +106,14 @@
             (extract-resultset! (split-select-query (first %)))))
        queries))
 
+(defn- get-table-name-from-query [query]
+	 (last (re-find (re-matcher #"(?:FROM|from) (\S+)" (first query)))))
+
 (defn execute-select-query!
   "Executes a select query to the origin database"
   [query]
   (log/trace "Executing query:" query)
-  (log/info "Extracting resultset from" (last (re-find (re-matcher #"(?:FROM|from) (\S+)" (first query)))))
+  (log/info "Extracting resultset from" (get-table-name-from-query query))
   (let [result (apply concat (extract-resultset! query))]
     (log/debug "Found" (count result) "items")
     result))
@@ -160,24 +163,25 @@
   (log/info "Splitting resultset of" (count resultset) "rows to insert into" (name table) "table.")
   (execute-insert-query-rowblock! table (split-parameters resultset (max-parameters-by-field-number (count (first resultset))))))
 
+(defn migrate-in-batches-applying-function
+  "Executes a migration from source to destination in batches applying a function to the retrieved resultsets"
+  ([source-query destination-table fun]
+   (migrate-in-batches-applying-function source-query destination-table fun limit))
+  ([source-query destination-table fun limit]
+  	(log/info "Extracting resultset for table" (get-table-name-from-query source-query) "in batches of" limit)
+   (loop [offset 0
+          resultset (execute-select-query! [(str (first source-query) " limit " limit " offset " offset)])
+          count (count resultset)]
+     (if (seq resultset)
+       (do
+         (fun (execute-insert-query! destination-table resultset))
+         (let [new-rs (execute-select-query! [(str (first source-query) " limit " limit " offset " offset)])]
+           (recur (+ limit offset) new-rs (+ count (count new-rs)))))
+       (log/info "Migration of" count "rows to" (name destination-table) "table finished")))))
+
 (defn migrate-in-batches
   "Executes a migration from source to destination in batches"
   ([source-query destination-table]
    (migrate-in-batches source-query destination-table limit))
   ([source-query destination-table limit]
-   (loop [offset 0
-          resultset (execute-select-query! [(str (first source-query) " limit " limit " offset " offset)])]
-     (when (seq resultset)
-       (execute-insert-query! destination-table resultset)
-       (recur (+ limit offset) (execute-select-query! [(str (first source-query) " limit " limit " offset " offset)]))))))
-
-(defn migrate-in-batches-applying-function
-		"Executes a migration from source to destination in batches applying a function to the retrieved resultsets"
-		([source-query destination-table fun]
-   (migrate-in-batches-applying-function source-query destination-table fun limit))
-  ([source-query destination-table fun limit]
-   (loop [offset 0
-          resultset (execute-select-query! [(str (first source-query) " limit " limit " offset " offset)])]
-     (when (seq resultset)
-       (fun (execute-insert-query! destination-table resultset))
-       (recur (+ limit offset) (execute-select-query! [(str (first source-query) " limit " limit " offset " offset)]))))))
+   (migrate-in-batches-applying-function source-query destination-table identity limit)))

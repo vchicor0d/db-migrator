@@ -107,7 +107,7 @@
        queries))
 
 (defn- get-table-name-from-query [query]
-	 (last (re-find (re-matcher #"(?:FROM|from) (\S+)" (first query)))))
+  (last (re-find (re-matcher #"(?:FROM|from) (\S+)" (first query)))))
 
 (defn execute-select-query!
   "Executes a select query to the origin database"
@@ -168,16 +168,15 @@
   ([source-query destination-table fun]
    (migrate-in-batches-applying-function source-query destination-table fun limit))
   ([source-query destination-table fun limit]
-  	(log/info "Extracting resultset for" (get-table-name-from-query source-query) "table in batches of" limit)
+   (log/info "Extracting resultset for" (get-table-name-from-query source-query) "table in batches of" limit)
    (loop [offset 0
-          resultset (execute-select-query! [(str (first source-query) " limit " limit " offset " offset)])
-          total (count resultset)]
-     (if (seq resultset)
-       (do
-         (fun (execute-insert-query! destination-table resultset))
-         (let [new-rs (execute-select-query! [(str (first source-query) " limit " limit " offset " offset)])]
-           (recur (+ limit offset) new-rs (+ total (count new-rs)))))
-       (log/info "Migration of" total "rows to" (name destination-table) "table finished")))))
+          total 0]
+     (let [resultset (execute-select-query! [(str (first source-query) " limit " limit " offset " offset)])]
+       (if (seq resultset)
+         (do
+           (fun (execute-insert-query! destination-table resultset))
+           (recur (+ limit offset) (+ total (count resultset))))
+         (log/info "Migration of" total "rows to" (name destination-table) "table finished"))))))
 
 (defn migrate-in-batches
   "Executes a migration from source to destination in batches"
